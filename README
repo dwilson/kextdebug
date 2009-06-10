@@ -1,0 +1,27 @@
+Kext Debugging Tools
+
+------------------------------------------------------------------------------
+
+These tools are provided to facilitate two-machine debugging for kernel
+extensions (kexts) on Mac OS X.
+
+------------------------------------------------------------------------------
+
+capfile
+
+Capistrano recipes to push a kext to the target machine, load it, and start
+execution.
+
+These recipes require Capistrano, a Ruby Gem that runs commands on a target
+machine via SSH.
+
+To get Capistrano (OS X already ships with Ruby Gems):
+sudo gem install capistrano
+
+To use the capfile, place it in the root of your kext project.  A list of
+commands can be obtained by running:
+
+cap -T
+
+You can set environment variables 'target' and 'kext' to avoid data entry
+when you run the cap commands.
