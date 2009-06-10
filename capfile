@@ -1,6 +1,6 @@
 # capfile
 # Capistrano recipes to simplify 2-machine debugging for Mac OS X
-# Author: Dan Wilson (dan.wilson@ni.com)
+# Author: Dan Wilson (daniel.b.wilson@gmail.com)
 # Copyright 2008-2009
 
 set(:target_machine) do
