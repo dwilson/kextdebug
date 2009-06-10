@@ -1,5 +1,9 @@
 # capfile
 # Capistrano recipes to simplify two-machine debugging for Mac OS X
+# 
+# Based on Apple's Hello Debugger documentation
+# http://developer.apple.com/documentation/Darwin/Conceptual/KEXTConcept/KEXTConceptDebugger/hello_debugger.html
+#
 # Author: Dan Wilson (daniel.b.wilson@gmail.com)
 # Copyright 2008-2009
 
@@ -52,6 +56,7 @@ namespace :nvram do
   namespace :debug do
     desc "Enable debugging on a remote system and reboot it"
     task :enable, :roles => :targets do
+      # TODO: This currently destroys any other boot-args that were set, e.g. arch
       on_rollback { sudo "nvram -d boot-args" }
       sudo "nvram boot-args='debug=0x14e'"
       sudo "reboot"
@@ -59,6 +64,7 @@ namespace :nvram do
   
     desc "Disable debugging on a remote system and reboot it"
     task :disable, :roles => :targets do
+      # TODO: This currently destroys any other boot-args that were set, e.g. arch
       on_rollback { sudo "nvram boot-args='debug=0x14e'" }
       sudo "nvram -d boot-args"
       sudo "reboot"
@@ -66,7 +72,7 @@ namespace :nvram do
     
     desc "Check current debug setting"
     task :status, :roles => :targets do
-      run "nvram -p | grep boot-args | grep debug || echo Debugging is not enabled."
+      run "nvram boot-args | grep debug || echo Debugging is not enabled."
     end
   end
 end
@@ -81,33 +87,23 @@ namespace :kext do
       start
     end
   end
+
+  desc "Unload a kext"
+  task :stop, :roles => :targets do
+    sudo "kextunload -b #{kext_identifier} || echo Continuing anyway..."
+    sudo "rm -rf /tmp/*.sym"
+  end
   
   desc "Copy the kext to the target machine"
   task :copy, :roles => :targets do
     `rm -f /tmp/#{kext_path[1]}.tar.gz`
     `tar czv -C #{kext_path[0]} -f /tmp/#{kext_path[1]}.tar.gz #{kext_path[1]}`
     sudo "rm -rf /tmp/#{kext_path[1]}.tar.gz /tmp/#{kext_path[1]}"
-    put File.read("/tmp/#{kext_path[1]}.tar.gz"), "/tmp/#{kext_path[1]}.tar.gz"
+    upload "/tmp/#{kext_path[1]}.tar.gz", "/tmp/#{kext_path[1]}.tar.gz"
     run "tar zxv -C /tmp -f /tmp/#{kext_path[1]}.tar.gz"
     sudo "chown -R root:wheel /tmp/#{kext_path[1]}"
   end
   
-  desc "Run kextstat on the target machine"
-  task :stat, :roles => :targets do
-    run "kextstat"
-  end
-  
-  desc "Start running a kext"
-  task :start, :roles => :targets do
-    sudo "kextload -m /tmp/#{kext_path[1]}"
-  end
-  
-  desc "Unload a kext"
-  task :stop, :roles => :targets do
-    sudo "kextunload -b #{kext_identifier} || echo Continuing anyway..."
-    sudo "rm -rf /tmp/*.sym"
-  end
-    
   desc "Generate symbols on the target and copy them back to the host"
   task :makesymbols, :roles => :targets do
     sudo "kextload -ls /tmp /tmp/#{kext_path[1]}"
@@ -116,5 +112,15 @@ namespace :kext do
     `mkdir #{sym_dir}`
     `scp #{target_machine}:/tmp/*.sym #{sym_dir}`
     puts "Symbol files have been copied to #{sym_dir}"
+  end
+
+  desc "Start running a kext"
+  task :start, :roles => :targets do
+    sudo "kextload -m /tmp/#{kext_path[1]}"
+  end
+
+  desc "Run kextstat on the target machine"
+  task :stat, :roles => :targets do
+    run "kextstat"
   end
 end
