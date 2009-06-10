@@ -6,8 +6,8 @@
 set(:target_machine) do
   result = ENV['target'] || ""
   if result.empty?
-    result = Capistrano::CLI.ui.ask "Enter a debugging target: "
-    puts "You can also set 'target' in your environment.\n"
+    result = Capistrano::CLI.ui.ask "Enter a SSH login for the debugging target, e.g. username@hostname: "
+    puts "You can avoid this prompt by exporting 'target' in your environment.\n"
   end
   result
 end
@@ -15,8 +15,8 @@ end
 set(:kext_name) do 
   result = ENV['kext'] || ""
   if result.empty?
-    result = Capistrano::CLI.ui.ask "Enter the kext path: "
-    puts "You can also set 'kext' in your environment.\n"
+    result = Capistrano::CLI.ui.ask "Enter an absolute path to the kext to debug: "
+    puts "You can avoid this prompt by exporting 'kext' in your environment.\n"
   end
   result
 end
