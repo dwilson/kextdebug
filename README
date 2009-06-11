@@ -18,10 +18,12 @@ machine via SSH.
 To get Capistrano (OS X already ships with Ruby Gems):
 sudo gem install capistrano
 
-To use the capfile, place it in the root of your kext project.  A list of
-commands can be obtained by running:
+To use the capfile, open a Terminal and cd to the capfile's directory.  A list
+of available commands can be obtained by running:
 
 cap -T
+
+I typically put the capfile in my kext project's root.
 
 You can set environment variables 'target' and 'kext' to avoid data entry
 when you run the cap commands.
