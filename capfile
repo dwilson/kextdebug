@@ -33,7 +33,17 @@ set(:kext_identifier) do
   end
 end
 
+# Use a pseudo-tty to prevent sudo from entering non-interactive mode on Mac OS X 10.6.
+default_run_options[:pty] = true
+
 role :targets, "#{target_machine}"
+
+def targetOsVersion
+  # On Mac OS X 10.6 and later, kextutil replaces many functions of kextload
+  version = Regexp.new('^10\.(\d+).*').match(capture("sw_vers -productVersion"))[1].to_i
+  raise "sw_vers returned an unexpected value" unless version >= 0
+  version
+end
 
 namespace :easyssh do
   desc "Enable no-password SSH on a remote system"
@@ -99,7 +109,10 @@ namespace :kext do
   
   desc "Start running a kext"
   task :start, :roles => :targets do
-    sudo "kextload -m /tmp/#{kext_path[1]}"
+    kext_command = "kextutil"
+    kext_command = "kextload" if targetOsVersion() <= 5
+
+    sudo "#{kext_command} -m /tmp/#{kext_path[1]}"
   end
   
   desc "Unload a kext"
@@ -110,7 +123,10 @@ namespace :kext do
     
   desc "Generate symbols on the target and copy them back to the host"
   task :makesymbols, :roles => :targets do
-    sudo "kextload -ls /tmp /tmp/#{kext_path[1]}"
+    kext_command = "kextutil"
+    kext_command = "kextload" if targetOsVersion() <= 5
+
+    sudo "#{kext_command} -ls /tmp /tmp/#{kext_path[1]}"
     puts "Copying symbols from #{target_machine}..."
     sym_dir = "/tmp/sym-#{target_machine}-#{Time.now.strftime('%Y%m%d-%H%M%S')}"
     `mkdir #{sym_dir}`
