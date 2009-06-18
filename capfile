@@ -86,21 +86,34 @@ namespace :nvram do
   namespace :debug do
     desc "Enable debugging on a remote system and reboot it"
     task :enable, :roles => :targets do
-      on_rollback { sudo "nvram -d boot-args" }
-      sudo "nvram boot-args='debug=0x14e'"
-      sudo "reboot"
+      current_boot_args = capture("nvram boot-args").gsub('boot-args', '').strip
+      if current_boot_args =~ /debug=/
+        puts "Debugging already appears to be enabled"
+      else
+        sudo "nvram boot-args='#{current_boot_args} debug=0x14e'"
+        sudo "reboot"
+      end
     end
   
     desc "Disable debugging on a remote system and reboot it"
     task :disable, :roles => :targets do
-      on_rollback { sudo "nvram boot-args='debug=0x14e'" }
-      sudo "nvram -d boot-args"
-      sudo "reboot"
+      current_boot_args = capture("nvram boot-args").gsub('boot-args', '').strip
+      if current_boot_args =~ /debug=/
+        sudo "nvram boot-args='#{current_boot_args.gsub(/debug=\S+/,"").strip}'"
+        sudo "reboot"
+      else
+        puts "Debugging already appears to be disabled"
+      end
     end
     
     desc "Check current debug setting"
     task :status, :roles => :targets do
-      run "nvram -p | grep boot-args | grep debug || echo Debugging is not enabled."
+      current_boot_args = capture("nvram boot-args").gsub('boot-args', '').strip
+      if current_boot_args =~ /debug=/
+        puts "Debugging appears to be enabled"
+      else
+        puts "Debugging does not appear to be enabled"
+      end
     end
   end
 end
