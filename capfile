@@ -3,6 +3,20 @@
 # Author: Dan Wilson (daniel.b.wilson@gmail.com)
 # Copyright 2008-2009
 
+#
+# Constants
+#
+$kOsVersionCheetah     = 0
+$kOsVersionPuma        = 1
+$kOsVersionJaguar      = 2
+$kOsVersionPanther     = 3
+$kOsVersionTiger       = 4
+$kOsVersionLeopard     = 5
+$kOsVersionSnowLeopard = 6
+
+#
+# Dynamically set variables
+#
 set(:target_machine) do
   result = ENV['target'] || ""
   if result.empty?
@@ -25,33 +39,39 @@ set(:kext_path) do
   File.split(kext_name)
 end
 
-# Extract kext personality string
-set(:kext_identifier) do 
-  kext_identifier = ""
-  File.open("#{kext_name}/Contents/Info.plist") do |file|
-    kext_identifier = file.read.scan(/\<key\>CFBundleIdentifier\<\/key\>\s*\<string\>.*\<\/string\>/)[0].gsub!(/\s*(\<key\>\s*CFBundleIdentifier\s*\<\/key\>|\<string\>|\<\/string\>)\s*/, '')
-  end
+set(:kext_identifier) do
+  `defaults read #{kext_name}/Contents/Info CFBundleIdentifier`.strip!
 end
 
+#
+# Recipe settings
+#
 # Use a pseudo-tty to prevent sudo from entering non-interactive mode on Mac OS X 10.6.
 default_run_options[:pty] = true
 
 role :targets, "#{target_machine}"
 
+#
+# Helper functions
+#
 def targetOsVersion
   # On Mac OS X 10.6 and later, kextutil replaces many functions of kextload
   version = Regexp.new('^10\.(\d+).*').match(capture("sw_vers -productVersion"))[1].to_i
   raise "sw_vers returned an unexpected value" unless version >= 0
+  $stderr.puts "Warning: These Capistrano recipes have not been tested with this version of Mac OS X" if version <= $kOsVersionPanther
   version
 end
 
+#
+# Tasks
+#
 namespace :easyssh do
   desc "Enable no-password SSH on a remote system"
   task :enable, :roles => :targets do
     if not File.exist?("#{ENV['HOME']}/.ssh/id_rsa.pub")
       `ssh-keygen -t rsa`
     end
-    put File.read("#{ENV['HOME']}/.ssh/id_rsa.pub"), "/tmp/debugger_host_id_rsa.pub"
+    upload "#{ENV['HOME']}/.ssh/id_rsa.pub", "/tmp/debugger_host_id_rsa.pub"
     run "mkdir ~/.ssh || echo Continuing anyway..."
     run "cat /tmp/debugger_host_id_rsa.pub >> ~/.ssh/authorized_keys"
     run "rm /tmp/debugger_host_id_rsa.pub"
@@ -97,7 +117,7 @@ namespace :kext do
     `rm -f /tmp/#{kext_path[1]}.tar.gz`
     `tar czv -C #{kext_path[0]} -f /tmp/#{kext_path[1]}.tar.gz #{kext_path[1]}`
     sudo "rm -rf /tmp/#{kext_path[1]}.tar.gz /tmp/#{kext_path[1]}"
-    put File.read("/tmp/#{kext_path[1]}.tar.gz"), "/tmp/#{kext_path[1]}.tar.gz"
+    upload "/tmp/#{kext_path[1]}.tar.gz", "/tmp/#{kext_path[1]}.tar.gz"
     run "tar zxv -C /tmp -f /tmp/#{kext_path[1]}.tar.gz"
     sudo "chown -R root:wheel /tmp/#{kext_path[1]}"
   end
@@ -110,7 +130,7 @@ namespace :kext do
   desc "Start running a kext"
   task :start, :roles => :targets do
     kext_command = "kextutil"
-    kext_command = "kextload" if targetOsVersion() <= 5
+    kext_command = "kextload" if targetOsVersion() <= $kOsVersionLeopard
 
     sudo "#{kext_command} -m /tmp/#{kext_path[1]}"
   end
@@ -124,7 +144,7 @@ namespace :kext do
   desc "Generate symbols on the target and copy them back to the host"
   task :makesymbols, :roles => :targets do
     kext_command = "kextutil"
-    kext_command = "kextload" if targetOsVersion() <= 5
+    kext_command = "kextload" if targetOsVersion() <= $kOsVersionLeopard
 
     sudo "#{kext_command} -ls /tmp /tmp/#{kext_path[1]}"
     puts "Copying symbols from #{target_machine}..."
