@@ -26,7 +26,7 @@ set(:target_machine) do
   result
 end
 
-set(:kext_name) do 
+set(:kext_full_path) do 
   result = ENV['kext'] || ""
   if result.empty?
     result = Capistrano::CLI.ui.ask "Enter an absolute path to the kext to debug: "
@@ -36,11 +36,15 @@ set(:kext_name) do
 end
 
 set(:kext_path) do
-  File.split(kext_name)
+  File.split(kext_full_path)[0]
+end
+
+set(:kext_name) do
+  File.split(kext_full_path)[1]
 end
 
 set(:kext_identifier) do
-  `defaults read #{kext_name}/Contents/Info CFBundleIdentifier`.strip!
+  `defaults read #{kext_full_path}/Contents/Info CFBundleIdentifier`.strip!
 end
 
 #
@@ -114,12 +118,12 @@ namespace :kext do
   
   desc "Copy the kext to the target machine"
   task :copy, :roles => :targets do
-    `rm -f /tmp/#{kext_path[1]}.tar.gz`
-    `tar czv -C #{kext_path[0]} -f /tmp/#{kext_path[1]}.tar.gz #{kext_path[1]}`
-    sudo "rm -rf /tmp/#{kext_path[1]}.tar.gz /tmp/#{kext_path[1]}"
-    upload "/tmp/#{kext_path[1]}.tar.gz", "/tmp/#{kext_path[1]}.tar.gz"
-    run "tar zxv -C /tmp -f /tmp/#{kext_path[1]}.tar.gz"
-    sudo "chown -R root:wheel /tmp/#{kext_path[1]}"
+    `rm -f /tmp/#{kext_name}.tar.gz`
+    `tar czv -C #{kext_path} -f /tmp/#{kext_name}.tar.gz #{kext_name}`
+    sudo "rm -rf /tmp/#{kext_name}.tar.gz /tmp/#{kext_name}"
+    upload "/tmp/#{kext_name}.tar.gz", "/tmp/#{kext_name}.tar.gz"
+    run "tar zxv -C /tmp -f /tmp/#{kext_name}.tar.gz"
+    sudo "chown -R root:wheel /tmp/#{kext_name}"
   end
   
   desc "Run kextstat on the target machine"
@@ -132,7 +136,7 @@ namespace :kext do
     kext_command = "kextutil"
     kext_command = "kextload" if targetOsVersion() <= $kOsVersionLeopard
 
-    sudo "#{kext_command} -m /tmp/#{kext_path[1]}"
+    sudo "#{kext_command} -m /tmp/#{kext_name}"
   end
   
   desc "Unload a kext"
@@ -146,7 +150,7 @@ namespace :kext do
     kext_command = "kextutil"
     kext_command = "kextload" if targetOsVersion() <= $kOsVersionLeopard
 
-    sudo "#{kext_command} -ls /tmp /tmp/#{kext_path[1]}"
+    sudo "#{kext_command} -ls /tmp /tmp/#{kext_name}"
     puts "Copying symbols from #{target_machine}..."
     sym_dir = "/tmp/sym-#{target_machine}-#{Time.now.strftime('%Y%m%d-%H%M%S')}"
     `mkdir #{sym_dir}`
